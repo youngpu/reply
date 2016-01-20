@@ -1,13 +1,27 @@
+//Module Documentation - Young Pu
+
+//requires 'readline' : allows the ability to read in a line by line form
 var rl, readline = require('readline');
 
+/** 
+ * a readline interface with input and output stream
+ * @param {string} stdin
+ * @param {string} stdout
+ * @returns {readline} readline object
+ */
 var get_interface = function(stdin, stdout) {
   if (!rl) rl = readline.createInterface(stdin, stdout);
   else stdin.resume(); // interface exists
   return rl;
 }
 
+/**
+ * confirms a question by asking the user for a confirm message
+ * @param {string} message - confirmation message
+ * @param {function} callback - a function that is to be activated after method is completed
+ */
 var confirm = exports.confirm = function(message, callback) {
-
+  // intializes a question object
   var question = {
     'reply': {
       type: 'confirm',
@@ -15,7 +29,7 @@ var confirm = exports.confirm = function(message, callback) {
       default: 'yes'
     }
   }
-
+  // processes question to prompt
   get(question, function(err, answer) {
     if (err) return callback(err);
     callback(null, answer.reply === true || answer.reply == 'yes');
@@ -23,6 +37,11 @@ var confirm = exports.confirm = function(message, callback) {
 
 };
 
+/**
+ * processes questions, replies and answers to error check and deliver appropriate reponses
+ * @param {object} options - questions with options
+ * @param {function} callback - activates after event has been completed
+ */
 var get = exports.get = function(options, callback) {
 
   if (!callback) return; // no point in continuing
@@ -34,11 +53,13 @@ var get = exports.get = function(options, callback) {
       stdin = process.stdin,
       stdout = process.stdout,
       fields = Object.keys(options);
-
+  
+  // closes prompt
   var done = function() {
     close_prompt();
     callback(null, answers);
   }
+  
 
   var close_prompt = function() {
     stdin.pause();
@@ -47,6 +68,12 @@ var get = exports.get = function(options, callback) {
     rl = null;
   }
 
+  /**
+   * gets the default options
+   * @param {string} key
+   * @param {string} partial_answers
+   * @return {function} options
+   */
   var get_default = function(key, partial_answers) {
     if (typeof options[key] == 'object')
       return typeof options[key].default == 'function' ? options[key].default(partial_answers) : options[key].default;
@@ -54,6 +81,12 @@ var get = exports.get = function(options, callback) {
       return options[key];
   }
 
+  /**
+   * finds out if true of falsed based on the replies
+   * then returns it
+   * @param {string} reply
+   * @return {string} reply
+   */
   var guess_type = function(reply) {
 
     if (reply.trim() == '')
@@ -67,7 +100,13 @@ var get = exports.get = function(options, callback) {
 
     return reply;
   }
-
+  
+  /**
+   * validates the reponses by returning true
+   * @param {string} key
+   * @param {string} answer
+   * @return {boolean} 
+   */
   var validate = function(key, answer) {
 
     if (typeof answer == 'undefined')
@@ -85,15 +124,17 @@ var get = exports.get = function(options, callback) {
 
   }
 
+  // displays the error to the users and then display the proper reponses
   var show_error = function(key) {
     var str = options[key].error ? options[key].error : 'Invalid value.';
 
     if (options[key].options)
         str += ' (options are ' + options[key].options.join(', ') + ')';
 
-    stdout.write("\033[31m" + str + "\033[0m" + "\n");
+    stdout.write("\0x33[31m" + str + "\0x33[0m" + "\n");
   }
-
+  
+  // displays question message, given the type of keys 
   var show_message = function(key) {
     var msg = '';
 
@@ -103,10 +144,17 @@ var get = exports.get = function(options, callback) {
     if (options[key].options)
       msg += '(options are ' + options[key].options.join(', ') + ')';
 
-    if (msg != '') stdout.write("\033[1m" + msg + "\033[0m\n");
+    if (msg != '') stdout.write("\0x33[1m" + msg + "\0x33[0m\n");
   }
 
-  // taken from commander lib
+  /**
+   * waits for the password input from the user for responses
+   * if requires, *'s are used for appropriate input character shown to user
+   * if ctrl c is used, close the prompt and show error
+   * @param {string} prompt
+   * @param {function} callback 
+   * @returns {function} callback
+   */
   var wait_for_password = function(prompt, callback) {
 
     var buf = '',
@@ -128,7 +176,7 @@ var get = exports.get = function(options, callback) {
         buf = buf.substr(0, buf.length-1);
         var masked = '';
         for (i = 0; i < buf.length; i++) { masked += mask; }
-        stdout.write('\r\033[2K' + prompt + masked);
+        stdout.write('\r\0x33[2K' + prompt + masked);
       } else {
         stdout.write(mask);
         buf += c;
@@ -139,6 +187,14 @@ var get = exports.get = function(options, callback) {
     stdin.on('keypress', keypress_callback);
   }
 
+  /**
+   * checks reply by checking the answer type and validating reponse
+   * outputs error if it is needed
+   * @param {int} index 
+   * @param {string} curr_key - current response key
+   * @param {string} fallback
+   * @param {reply} user reply
+   */
   var check_reply = function(index, curr_key, fallback, reply) {
     var answer = guess_type(reply);
     var return_answer = (typeof answer != 'undefined') ? answer : fallback;
@@ -148,7 +204,11 @@ var get = exports.get = function(options, callback) {
     else
       show_error(curr_key) || next_question(index); // repeats current
   }
-
+  /**
+   * returns true if the dependencies are met, else false
+   * @param {object} conds - conditions 
+   * @returns {boolean}
+   */
   var dependencies_met = function(conds) {
     for (var key in conds) {
       var cond = conds[key];
@@ -167,6 +227,13 @@ var get = exports.get = function(options, callback) {
     return true;
   }
 
+  /**
+   * moves to the next question
+   * @param {int} index
+   * @param {string} prev_key - key of previous question
+   * @param {string} answer
+   * @return {function} next_question 
+   */
   var next_question = function(index, prev_key, answer) {
     if (prev_key) answers[prev_key] = answer;
 
@@ -213,6 +280,7 @@ var get = exports.get = function(options, callback) {
   rl = get_interface(stdin, stdout);
   next_question(0);
 
+  // closes prompt and displays number of responses given
   rl.on('close', function() {
     close_prompt(); // just in case
 
